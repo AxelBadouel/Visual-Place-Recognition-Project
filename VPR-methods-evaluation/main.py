@@ -15,6 +15,8 @@ import visualizations
 import vpr_models
 from test_dataset import TestDataset
 
+import csv
+
 
 def main(args):
     start_time = datetime.now()
@@ -74,7 +76,9 @@ def main(args):
         np.save(log_dir / "database_descriptors.npy", database_descriptors)
 
     # Use a kNN to find predictions
-    faiss_index = faiss.IndexFlatL2(args.descriptors_dimension)
+    # We created a new variable to pass as argument to the script when calling it
+    # According to the value of this script, we pick L2 metric or dot product(Inner Product i.e. IP) metric to measure distance
+    faiss_index = faiss.IndexFlatL2(args.descriptors_dimension) if args.distance_metric == 'L2' else faiss.IndexFlatIP(args.descriptors_dimension)  # 1
     faiss_index.add(database_descriptors)
     del database_descriptors, all_descriptors
 
@@ -95,6 +99,10 @@ def main(args):
         recalls = recalls / test_ds.num_queries * 100
         recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
         logger.info(recalls_str)
+
+        #   We save the observed recalls to a file for later analysis
+        writer = csv.writer(open("first_performance_eval.csv", "w+", newline="\n"))   # 1
+        writer.writerow(f"{args.method} {args.distance_metric} ".join(recalls_str))   # 1
 
     # Save visualizations of predictions
     if args.num_preds_to_save != 0:

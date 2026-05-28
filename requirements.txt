@@ -1,0 +1,5 @@
+numpy
+torch
+faiss-cpu
+loguru
+tqdm
