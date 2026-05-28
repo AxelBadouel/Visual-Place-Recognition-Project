@@ -5,6 +5,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument(
+        "--distance_metric",
+        type=str,
+        default="L2",
+        choices=[
+            "L2",
+            "dotproduct"
+        ],
+        help="Choice of the metric to use for the distance measure"
+    )
+    parser.add_argument(
         "--positive_dist_threshold",
         type=int,
         default=25,
