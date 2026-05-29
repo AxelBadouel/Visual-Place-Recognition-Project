@@ -101,8 +101,8 @@ def main(args):
         logger.info(recalls_str)
 
         #   We save the observed recalls to a file for later analysis
-        writer = csv.writer(open("first_performance_eval.csv", "w+", newline="\n"))   # 1
-        writer.writerow(f"{args.method} {args.distance_metric} {args.queries_folder} ".join(recalls_str))   # 1
+        writer = csv.writer(open(f"{args.method} first_performance_eval.csv", "w+", newline="\n"))   # 1
+        writer.writerow(f"{args.distance_metric} {args.queries_folder} ".join(recalls_str))   # 1
 
     # Save visualizations of predictions
     if args.num_preds_to_save != 0:
