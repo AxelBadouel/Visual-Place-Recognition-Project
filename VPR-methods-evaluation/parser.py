@@ -4,6 +4,7 @@ import argparse
 def parse_arguments():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    #  ADDED THIS ARGUMENT
     parser.add_argument(
         "--distance_metric",
         type=str,
