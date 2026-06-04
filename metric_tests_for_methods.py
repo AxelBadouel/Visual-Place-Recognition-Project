@@ -13,16 +13,16 @@ distance_metrics = ["L2", "dotproduct"]
 
 # The prof said that for the svox dataset, we have to use "gallery" as database and use "queries_night" and "queries_sun" as queries for it
 # This dictionary associates to each database, its particular queries to be used with it
-test_set_db_queries = {
-    "/content/data/sf_xs/test/database":"/content/data/sf_xs/test/queries" ,
-    "/content/data/tokyo_xs/test/database":"/content/data/tokyo_xs/test/queries" ,
-    "/content/data/svox/images/test/gallery":"/content/data/svox/images/test/queries_night" ,
-    "/content/data/svox/images/test/gallery":"/content/data/svox/images/test/queries_sun"
-}
+test_set_db_queries = [
+    ("/content/data/sf_xs/test/database",            "/content/data/sf_xs/test/queries"),
+    ("/content/data/tokyo_xs/test/database",          "/content/data/tokyo_xs/test/queries"),
+    ("/content/data/svox/images/test/gallery",        "/content/data/svox/images/test/queries_night"),
+    ("/content/data/svox/images/test/gallery",        "/content/data/svox/images/test/queries_sun"),
+]
 # THE PART FOR  EVERYONE ENDS HERE
 
 for distance_metric in distance_metrics:
-  for database, queries in test_set_db_queries.items():
+  for database, queries in test_set_db_queries:
     #   UNCOMMENT AND PASTE IN COLAB IF YOU WANT TO USE NETVLAD
     """
     !python /content/Visual-Place-Recognition-Project/VPR-methods-evaluation/main.py \
@@ -38,7 +38,7 @@ for distance_metric in distance_metrics:
     --distance_metric=$distance_metric
     """
 for distance_metric in distance_metrics:
-  for database, queries in test_set_db_queries.items():
+  for database, queries in test_set_db_queries:
     #   UNCOMMENT AND PASTE IN COLAB IF YOU WANT TO USE COSPLACE
     """
     !python /content/Visual-Place-Recognition-Project/VPR-methods-evaluation/main.py \
@@ -54,7 +54,7 @@ for distance_metric in distance_metrics:
     --distance_metric=$distance_metric
     """
 for distance_metric in distance_metrics:
-  for database, queries in test_set_db_queries.items():
+  for database, queries in test_set_db_queries:
     #   UNCOMMENT AND PASTE IN COLAB IF YOU WANT TO USE MIXVPR
     """
     !python /content/Visual-Place-Recognition-Project/VPR-methods-evaluation/main.py \
@@ -71,7 +71,7 @@ for distance_metric in distance_metrics:
     """
 
 for distance_metric in distance_metrics:
-  for database, queries in test_set_db_queries.items():
+  for database, queries in test_set_db_queries:
     #   UNCOMMENT AND PASTE IN COLAB IF YOU WANT TO USE MEGALOC
     """
     !python /content/Visual-Place-Recognition-Project/VPR-methods-evaluation/main.py \
