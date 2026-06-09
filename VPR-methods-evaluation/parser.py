@@ -7,6 +7,7 @@ def parse_arguments():
     #  ADDED THIS ARGUMENT
     parser.add_argument(
         "--distance_metric",
+        nargs="+",
         type=str,
         default="L2",
         choices=[
@@ -58,8 +59,8 @@ def parse_arguments():
         help="_",
     )
     parser.add_argument("--descriptors_dimension", type=int, default=None, help="_")
-    parser.add_argument("--database_folder", type=str, required=True, help="path/to/database")
-    parser.add_argument("--queries_folder", type=str, required=True, help="path/to/queries")
+    parser.add_argument("--database_folder", nargs="+", type=str, required=True, help="path/to/database")
+    parser.add_argument("--queries_folder", nargs="+", type=str, required=True, help="path/to/queries")
     parser.add_argument("--num_workers", type=int, default=4, help="_")
     parser.add_argument(
         "--batch_size", type=int, default=4, help="set to 1 if database images may have different resolution"

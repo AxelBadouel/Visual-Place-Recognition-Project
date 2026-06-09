@@ -7,6 +7,7 @@ from glob import glob
 from tqdm import tqdm
 from pathlib import Path
 from copy import deepcopy
+import time
 
 from util import read_file_preds
 
@@ -18,7 +19,7 @@ from matching.utils import get_default_device
 def parse_arguments():
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--preds-dir", type=str, help="directory with predictions of a VPR model")
+    parser.add_argument("--preds-dir", nargs="+", type=str, help="directory with predictions of a VPR model")  # Added nargs="+" so as to receive a list of input
     parser.add_argument("--out-dir", type=str, default=None, help="output directory of image matching results")
     # Choose matcher
     parser.add_argument(
@@ -29,8 +30,8 @@ def parse_arguments():
         help="choose your matcher",
     )
     parser.add_argument("--device", type=str, default=get_default_device(), choices=["cpu", "cuda"])
-    parser.add_argument("--im-size", type=int, default=512, help="resize img to im_size x im_size")
-    parser.add_argument("--num-preds", type=int, default=100, help="number of predictions to match")
+    parser.add_argument("--im-size", type=int, default=512, help="resize img to im_size x im_size")     # Image size for image matching test section is already fixed at 512
+    parser.add_argument("--num-preds", nargs="+", type=int, default=100, help="number of predictions to match")  # Added nargs="+" so as to receive a list of input
     parser.add_argument("--start-query", type=int, default=-1, help="query to start from")
     parser.add_argument("--num-queries", type=int, default=-1, help="number of queries")
 
@@ -40,35 +41,44 @@ def main(args):
     device = args.device
     matcher_name = args.matcher
     img_size = args.im_size
-    num_preds = args.num_preds
+    num_predictions = args.num_preds
     matcher = get_matcher(matcher_name, device=device)
-    preds_folder = args.preds_dir
+    preds_folders = args.preds_dir
     start_query = args.start_query
     num_queries = args.num_queries
 
-    output_folder = Path(preds_folder + f"_{matcher_name}") if args.out_dir is None else Path(args.out_dir)
-    output_folder.mkdir(exist_ok=True)
-    
-    txt_files = glob(os.path.join(preds_folder, "*.txt"))
-    txt_files.sort(key=lambda x: int(Path(x).stem))
+    # Added 2 for loops to compute recall. For each folder of predictions, compute the recalls: R@1, R@5, R@10
+    for preds_folder in preds_folders:
+        for num_preds in num_predictions:
+            output_folder = Path(preds_folder + f"_{matcher_name}") if args.out_dir is None else Path(args.out_dir)
+            
+            output_folder.mkdir(exist_ok=True)
+            
+            txt_files = glob(os.path.join(preds_folder, "*.txt"))
+            txt_files.sort(key=lambda x: int(Path(x).stem))
 
-    start_query = start_query if start_query >= 0 else 0
-    num_queries = num_queries if num_queries >= 0 else len(txt_files)
+            start_query = start_query if start_query >= 0 else 0
+            num_queries = num_queries if num_queries >= 0 else len(txt_files)
 
-    for txt_file in tqdm(txt_files[start_query : start_query + num_queries]):
-        q_num = Path(txt_file).stem
-        out_file = output_folder.joinpath(f"{q_num}.torch")
-        if out_file.exists():
-            continue
-        results = []
-        q_path, pred_paths = read_file_preds(txt_file)
-        img0 = matcher.load_image(q_path, resize=img_size)
-        for pred_path in pred_paths[:num_preds]:
-            img1 = matcher.load_image(pred_path, resize=img_size)
-            result = matcher(deepcopy(img0), img1)
-            result["all_desc0"] = result["all_desc1"] = None
-            results.append(result)
-        torch.save(results, out_file)
+            for txt_file in tqdm(txt_files[start_query : start_query + num_queries]):
+                q_num = Path(txt_file).stem
+                out_file = output_folder.joinpath(f"{q_num}.torch")
+                if out_file.exists():
+                    continue
+                results = []
+                q_path, pred_paths = read_file_preds(txt_file)
+                img0 = matcher.load_image(q_path, resize=img_size)
+                start_time = time.perf_counter()
+                for pred_path in pred_paths[:num_preds]:
+                    img1 = matcher.load_image(pred_path, resize=img_size)
+                    result = matcher(deepcopy(img0), img1)
+                    result["all_desc0"] = result["all_desc1"] = None
+                    results.append(result)
+                
+                end_time = time.perf_counter()
+                execution_time = end_time - start_time  # Measuring time for performance evaluation
+                results.append(execution_time)   # Add this time to the results for this matcher
+                torch.save(results, out_file)
 
 if __name__ == "__main__":
     args = parse_arguments()
