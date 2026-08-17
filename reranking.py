@@ -104,9 +104,19 @@ def main(args):
         
         # Create target directory if it doesn't exist yet
         destination_folder.mkdir(parents=True, exist_ok=True)
-    
+
+        db_name = ""
+        if "sf_xs" in preds_folder:
+            db_name = "sf_xs"
+        if "tokyo_xs" in preds_folder:
+            db_name = "tokyo_xs"
+        if "svox_queries_night" in preds_folder:
+            db_name = "svox_queries_night"
+        if "svox_queries_sun" in preds_folder:
+            db_name = "svox_queries_sun"
+
         # Define output path in the destination folder directory
-        excel_path = Path(destination_folder) / f"{matcher_name}_recalls.xlsx"
+        excel_path = Path(destination_folder) / f"{db_name}_{matcher_name}_recalls.xlsx"
 
         # Save to Excel
         df.to_excel(excel_path, index=False)
