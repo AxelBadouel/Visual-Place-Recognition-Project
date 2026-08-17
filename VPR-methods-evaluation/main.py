@@ -43,7 +43,7 @@ def main(args):
                 queries,
                 positive_dist_threshold=args.positive_dist_threshold,
                 image_size=args.image_size,
-                use_labels=args.use_labels,
+                #use_labels=args.use_labels,
             )
             logger.info(f"Testing on {test_ds}")
 
@@ -54,6 +54,8 @@ def main(args):
                     dataset=database_subset_ds, num_workers=args.num_workers, batch_size=args.batch_size
                 )
                 all_descriptors = np.empty((len(test_ds), args.descriptors_dimension), dtype="float32")
+                
+                # Computation of the descriptors of the Database
                 for images, indices in tqdm(database_dataloader):
                     descriptors = model(images.to(args.device))
                     descriptors = descriptors.cpu().numpy()
@@ -64,6 +66,8 @@ def main(args):
                     test_ds, list(range(test_ds.num_database, test_ds.num_database + test_ds.num_queries))
                 )
                 queries_dataloader = DataLoader(dataset=queries_subset_ds, num_workers=args.num_workers, batch_size=1)
+
+                # Computation of the descriptors of the Queries
                 for images, indices in tqdm(queries_dataloader):
                     descriptors = model(images.to(args.device))
                     descriptors = descriptors.cpu().numpy()
@@ -85,7 +89,7 @@ def main(args):
             del database_descriptors, all_descriptors
 
             logger.debug("Calculating recalls")
-            distances, predictions = faiss_index.search(queries_descriptors, max(args.recall_values))
+            distances, predictions = faiss_index.search(queries_descriptors, max(args.recall_values))       # Nearest neighbour search based on the above defined faiss metric
 
             # For each query, check if the predictions are correct
             if args.use_labels:
@@ -102,7 +106,7 @@ def main(args):
                 recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
                 logger.info(recalls_str)
 
-                # We save the observed recalls to a file for later analysis
+                # We save the observed recalls to a file for later processing
                 # If the length is 1 means we are in the testing for R@20 phase
                 # For the matching cases where we have to calculate R@1 R@5 R@10, we don't have to use the file 
                 if len(args.recall_values) == 1:
