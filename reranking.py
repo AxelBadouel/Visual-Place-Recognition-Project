@@ -41,7 +41,7 @@ def main(args):
         inliers_folder_name = inliers_folder # Save the name of the folder before converting it to path
         inliers_folder = Path(inliers_folder)
         txt_files = glob(os.path.join(preds_folder, "*.txt"))   # Each file in the preds_folder contains a query and the corresponding predictions made by the VPR method
-        txt_files.sort(key=lambda x: int(Path(x).stem))
+        txt_files.sort(key=lambda x: int(Path(x).stem))     # Because glob may ruin the existing order, we sort the list here again
 
         total_queries = len(txt_files)
 
@@ -59,28 +59,32 @@ def main(args):
         recalls = np.zeros(len(recall_values))
 
         for txt_file_query in tqdm(txt_files):  # For each query
-            geo_dists = torch.tensor(get_list_distances_from_preds(txt_file_query))[:num_preds]     # Extraction of a vector of up to num_preds distances between query and predicted locations
+            # Extraction of up to num_preds vector of predicted images in order of increasing distances between query and predicted locations
+            # This works because naturally the VPR method orders the predictions in that order
+            geo_dists = torch.tensor(get_list_distances_from_preds(txt_file_query))[:num_preds]
             torch_file_query = inliers_folder.joinpath(Path(txt_file_query).name.replace('txt', 'torch'))
             query_results = torch.load(torch_file_query, weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
-            query_db_inliers = torch.zeros(num_preds, dtype=torch.int32)
-            num_preds = min(len(query_results), num_preds, len(geo_dists))
+              
+            num_preds = min(len(query_results), num_preds, len(geo_dists))      # At the end of the day, the num_preds to be delt with has to be consistent everywhere so we pick the smallest and work with it
+            query_db_inliers = torch.zeros(num_preds, dtype=torch.int32)  
 
-            for i in range(num_preds):
+            for i in range(num_preds):      # Each prediction has data attached to it in the form of a dictionary. We are only interested in the inliers
               result = query_results[i]
               if isinstance(result, dict):
-                query_db_inliers[i] = result['num_inliers']       # Save the first num_preds inlier results for the predictions of this query
+                query_db_inliers[i] = result['num_inliers']       # Save the number of inliers for this predictions
               else:
-                query_db_inliers[i] = int(result)
+                query_db_inliers[i] = int(result)       # Sometimes the matcher can't match and adds a 0.0 in the dictionary for the predictions and it caused errors
+
             query_db_inliers, indices = torch.sort(query_db_inliers, descending=True)   # Reorder the inliers and save both the new order and the old indices reordered as well
             
-            # The following is done to have all the vectors with the same length
-            query_db_inliers = query_db_inliers[:num_preds]
-            indices = indices[:num_preds]
+            # We truncate the list have everything the same  with the same length
+            # query_db_inliers = query_db_inliers[:num_preds]
+            # indices = indices[:num_preds]
             
-            geo_dists = geo_dists[indices]      # Reorder the distances following this new order in decreasing number of inliers
+            geo_dists = geo_dists[indices]      # Reorder the distances following this new order in decreasing number of inliers using the indices of the new order
             
             for i, n in enumerate(recall_values):
-                if torch.any(geo_dists[:n] <= threshold):
+                if torch.any(geo_dists[:n] <= threshold):   # If any of the distances is below the threshold of 25, then it is counted as a success
                     recalls[i:] += 1
                     break
 
