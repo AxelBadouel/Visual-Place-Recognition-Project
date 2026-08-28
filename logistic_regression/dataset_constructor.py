@@ -12,7 +12,9 @@ from glob import glob
 from pathlib import Path
 import torch
 import pandas as pd
+import sys
 
+sys.path.append("/content/Visual-Place-Recognition-Project")
 from util import get_list_distances_from_preds
 
 def parse_arguments():

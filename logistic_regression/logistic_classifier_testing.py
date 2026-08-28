@@ -4,7 +4,9 @@ import numpy as np
 from logistic_classifier import AdaptiveClassifier
 import os, argparse
 from pathlib import Path
+import sys
 
+sys.path.append("/content/Visual-Place-Recognition-Project")
 from util import get_list_distances_from_preds
 
 def parse_arguments():
