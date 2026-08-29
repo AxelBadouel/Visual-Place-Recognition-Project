@@ -8,22 +8,24 @@ from logistic_classifier import AdaptiveClassifier
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--train_inliers_df_cvs", nargs="+", type=str, help="file with the dataframe of the training inliers")
-    parser.add_argument("--val_inliers_df_cvs", nargs="+", type=str, help="file with the dataframe of the validation inliers")
+    parser.add_argument("--train_inliers_df_csv", nargs="+", type=str, help="file with the dataframe of the training inliers")
+    parser.add_argument("--val_inliers_df_csv", nargs="+", type=str, help="file with the dataframe of the validation inliers")
     parser.add_argument("--out_dir", type=str, help="Directory were the checkpoint will be saved")
+    parser.add_argument("--device", type=str, help="Device to use should be 'cpu' or 'cuda'")
 
     return parser.parse_args()
 
 def main(args):
+    device = args.device
     train_data_csv = pd.read_csv(
-        args.train_inliers_df_cvs
+        args.train_inliers_df_csv
         if isinstance(args.train_inliers_df_cvs, list)
-        else args.train_inliers_df_cvs
+        else args.train_inliers_df_csv
     )
     val_data_csv = pd.read_csv(
         args.val_inliers_df_cvs[0]
-        if isinstance(args.val_inliers_df_cvs, list)
-        else args.val_inliers_df_cvs
+        if isinstance(args.val_inliers_df_csv, list)
+        else args.val_inliers_df_csv
     )
 
     train_dataframe = pd.read_csv(train_data_csv)
@@ -43,6 +45,7 @@ def main(args):
     y_val = torch(val_labels, dtype=torch.float32).unsqueeze(1)
 
     model = AdaptiveClassifier()
+    model.to(device)
     criterion = nn.BCELoss()    # Binary Cross-Entropy
     optimizer = optim.SGD(model.parameters(), lr=0.01)
 
@@ -51,6 +54,8 @@ def main(args):
     for epoch in range(num_epochs):
         model.train()
         optimizer.zero_grad()
+        x_train.to(device)
+        y_train.to(device)
 
         # Forward pass
         outputs = model(x_train_scaled)

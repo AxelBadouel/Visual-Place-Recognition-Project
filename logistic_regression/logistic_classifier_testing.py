@@ -18,6 +18,7 @@ def parse_arguments():
     parser.add_argument("--classifier_weights", type=str, help="Weights to be of the trained classifier")
     parser.add_argument("--preds_dir", nargs="+", type=str, help="Directories where the predictions of the different methods have been saved")
     parser.add_argument("--out_dir", type=str, help="Directory were the checkpoint will be saved")
+    parser.add_argument("--device", type=str, help="Device to use should be 'cpu' or 'cuda'")
 
     return parser.parse_args()
 
@@ -56,6 +57,7 @@ def rerank(txt_file_query, inliers_folder, num_preds=100):
     return recall
 
 def main(args):
+    device = args.device
     checkpoint = torch.load(args.classifier_weights)
 
     model = AdaptiveClassifier()
@@ -79,6 +81,8 @@ def main(args):
     x_test = torch.tensor(test_inliers, dtype=torch.float32).unsqueeze(1)
     x_test_scaled = (x_test - train_mean) / train_std
 
+    model.to(device)
+    x_test_scaled.to(device)
     with torch.no_grad():
         probs = model(x_test_scaled)
 
