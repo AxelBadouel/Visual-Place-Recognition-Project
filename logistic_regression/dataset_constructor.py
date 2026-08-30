@@ -44,7 +44,7 @@ def main(args):
         inliers_folder = Path(inliers_folder)
 
         txt_files = glob(os.path.join(preds_folder, "*.txt"))   # Each file in the preds_folder contains a query and the corresponding predictions made by the VPR method
-        txt_files.sort(key=lambda x: int(Path(x).stem))     # Because glob may ruin the existing order, we sort the list here again
+        txt_files.sort(key=lambda x: int(Path(x).stem) if Path(x).stem.isdigit() else Path(x).stem)     # Because glob may ruin the existing order, we sort the list here again
 
         folder = Path(preds_folder)
         print(f"folder name: {folder}")
@@ -68,14 +68,14 @@ def main(args):
             if not torch_file_query.exists():
                 continue
 
-            query_results = torch.load(torch_file_query, weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
+            query_results = torch.load(torch_file_query, map_location="cpu", weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
             
             num_preds = min(len(query_results), max_num_preds, len(geo_dists))      # At the end of the day, the num_preds to be delt with has to be consistent everywhere so we pick the smallest and work with it
             query_db_inliers = torch.zeros(num_preds, dtype=torch.int32)  
 
             for i in range(num_preds):      # Each prediction has data attached to it in the form of a dictionary. We are only interested in the inliers
                 result = query_results[i]
-                if isinstance(result, dict):
+                if isinstance(result, dict) and 'num_inliers' in result:
                     query_db_inliers[i] = result['num_inliers']       # Save the number of inliers for this predictions
                 else:
                     query_db_inliers[i] = int(result)       # Sometimes the matcher can't match and adds a 0.0 in the dictionary for the predictions and it caused errors
@@ -91,12 +91,13 @@ def main(args):
             else:     # Meaning no good prediction was made
                 label = 0       # Mark the query as "hard"
 
-        log_reg_dataset.append(
-            [query_db_inliers[0].item(), label, txt_file_query]
-        )
+            log_reg_dataset.append(
+                [query_db_inliers[0].item(), label, txt_file_query]
+            )
+
         # Create DataFrame
         dataframe = pd.DataFrame(
-            log_reg_dataset, columns=["inliers", "labels", "query_file"]
+            log_reg_dataset, columns=["inliers", "label", "query_file"]
             ) # Save this data to a file for later use
 
         # Define output path in the destination folder directory

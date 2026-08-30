@@ -12,13 +12,13 @@ from util import get_list_distances_from_preds
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--test_inliers_df_cvs", nargs="+", type=str, help="file with the dataframe of the test inliers")
+    parser.add_argument("--test_inliers_df_csv", nargs="+", type=str, help="file with the dataframe of the test inliers")
     parser.add_argument("--inliers_dir", type=str, help="Directory containing the saved .torch inlier files")
     parser.add_argument("--num-preds", type=int, default=100, help="Number of predictions to consider for the reranking")
     parser.add_argument("--classifier_weights", type=str, help="Weights to be of the trained classifier")
     parser.add_argument("--preds_dir", nargs="+", type=str, help="Directories where the predictions of the different methods have been saved")
     parser.add_argument("--out_dir", type=str, help="Directory were the checkpoint will be saved")
-    parser.add_argument("--device", type=str, help="Device to use should be 'cpu' or 'cuda'")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use should be 'cpu' or 'cuda'")
 
     return parser.parse_args()
 
@@ -35,14 +35,14 @@ def rerank(txt_file_query, inliers_folder, num_preds=100):
     if not torch_file_query.exists():
         return 0
     
-    query_results = torch.load(torch_file_query, weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
+    query_results = torch.load(torch_file_query, map_location="cpu", weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
         
     num_preds = min(len(query_results), num_preds, len(geo_dists))      # At the end of the day, the num_preds to be delt with has to be consistent everywhere so we pick the smallest and work with it
     query_db_inliers = torch.zeros(num_preds, dtype=torch.int32)  
 
     for i in range(num_preds):      # Each prediction has data attached to it in the form of a dictionary. We are only interested in the inliers
         result = query_results[i]
-        if isinstance(result, dict):
+        if isinstance(result, dict) and 'num_inliers' in result:
             query_db_inliers[i] = result['num_inliers']       # Save the number of inliers for this predictions
         else:
             query_db_inliers[i] = int(result)       # Sometimes the matcher can't match and adds a 0.0 in the dictionary for the predictions and it caused errors
@@ -57,8 +57,8 @@ def rerank(txt_file_query, inliers_folder, num_preds=100):
     return recall
 
 def main(args):
-    device = args.device
-    checkpoint = torch.load(args.classifier_weights)
+    device = torch.device(args.device)
+    checkpoint = torch.load(args.classifier_weights, map_location=device, weights_only=False)
 
     model = AdaptiveClassifier()
     model.load_state_dict(checkpoint["state_dict"])
@@ -68,10 +68,10 @@ def main(args):
     train_std = checkpoint["train_std"]
     probability_threshold = checkpoint["threshold"]
 
-    test_csv_path = pd.read_csv(
-        args.test_inliers_df_cvs[0]
-        if isinstance(args.test_inliers_df_cvs, list)
-        else args.test_inliers_df_cvs
+    test_csv_path = (
+        args.test_inliers_df_csv[0]
+        if isinstance(args.test_inliers_df_csv, list)
+        else args.test_inliers_df_csv
     )
     test_dataframe = pd.read_csv(test_csv_path)
 
@@ -82,16 +82,18 @@ def main(args):
     x_test_scaled = (x_test - train_mean) / train_std
 
     model.to(device)
-    x_test_scaled.to(device)
+    x_test_scaled = x_test_scaled.to(device)
     with torch.no_grad():
         probs = model(x_test_scaled)
 
     # True = Low probability of success -> TRIGGER RE-RANKING
     is_hard_query = (probs < probability_threshold).squeeze().tolist()
+    if isinstance(is_hard_query, bool):
+        is_hard_query = [is_hard_query]
 
     total_queries = len(query_files)
     successful_retrievals = 0
-    total_reranking = 0
+    total_reranked = 0
 
     for i in range(total_queries):
         txt_file = query_files[i]
@@ -109,9 +111,9 @@ def main(args):
 
         successful_retrievals += recall
 
-        print(f"Total Test Queries: {total_queries}")
-        print(f"Queries Re-ranked: {total_reranked} ({(total_reranked/total_queries)*100:.2f}%)")
-        print(f"Final Recall@1 Accuracy: {successful_retrievals / total_queries:.4f}")
+    print(f"Total Test Queries: {total_queries}")
+    print(f"Queries Re-ranked: {total_reranked} ({(total_reranked/total_queries)*100:.2f}%)")
+    print(f"Final Recall@1 Accuracy: {successful_retrievals / total_queries:.4f}")
 
 if __name__ == "__main__":
     args = parse_arguments()
