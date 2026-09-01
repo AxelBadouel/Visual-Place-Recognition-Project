@@ -65,10 +65,12 @@ def main(args):
             torch_file_query = inliers_folder.joinpath(Path(txt_file_query).name.replace('txt', 'torch'))
             query_results = torch.load(torch_file_query, weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
               
-            num_preds = min(len(query_results), num_preds, len(geo_dists))      # At the end of the day, the num_preds to be delt with has to be consistent everywhere so we pick the smallest and work with it
-            query_db_inliers = torch.zeros(num_preds, dtype=torch.int32)  
+            # Determine the valid candidate count for this specific query without overwriting num_preds for subsequent iterations
+            k_preds = min(len(query_results), num_preds, len(geo_dists))      # At the end of the day, the num_preds to be delt with has to be consistent everywhere so we pick the smallest and work with it
+            geo_dists = geo_dists[:k_preds]
+            query_db_inliers = torch.zeros(k_preds, dtype=torch.int32)  
 
-            for i in range(num_preds):      # Each prediction has data attached to it in the form of a dictionary. We are only interested in the inliers
+            for i in range(k_preds):      # Each prediction has data attached to it in the form of a dictionary. We are only interested in the inliers
               result = query_results[i]
               if isinstance(result, dict):
                 query_db_inliers[i] = result['num_inliers']       # Save the number of inliers for this predictions
