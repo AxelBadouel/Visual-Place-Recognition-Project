@@ -65,40 +65,34 @@ def main(args):
             geo_dists = torch.tensor(get_list_distances_from_preds(txt_file_query))[:max_num_preds]
             torch_file_query = inliers_folder.joinpath(Path(txt_file_query).name.replace('txt', 'torch'))
 
-            if not torch_file_query.exists():
+            if not torch_file_query.exists() or len(geo_dists) == 0:
                 continue
 
             query_results = torch.load(torch_file_query, map_location="cpu", weights_only=False)    # Load the image matching results for this query. These were saved when we called the image matcher
-            
-            num_preds = min(len(query_results), max_num_preds, len(geo_dists))      # At the end of the day, the num_preds to be delt with has to be consistent everywhere so we pick the smallest and work with it
-            query_db_inliers = torch.zeros(num_preds, dtype=torch.int32)  
+            if len(query_results) == 0:
+                continue
 
-            for i in range(num_preds):      # Each prediction has data attached to it in the form of a dictionary. We are only interested in the inliers
-                result = query_results[i]
-                if isinstance(result, dict) and 'num_inliers' in result:
-                    query_db_inliers[i] = result['num_inliers']       # Save the number of inliers for this predictions
-                else:
-                    query_db_inliers[i] = int(result)       # Sometimes the matcher can't match and adds a 0.0 in the dictionary for the predictions and it caused errors
+            # We take the inliers computed for the top-1 predictor (Candidate 0 before any re-ranking)
+            res0 = query_results[0]
+            if isinstance(res0, dict) and 'num_inliers' in res0:
+                top1_inliers = int(res0['num_inliers'])       # Save the number of inliers for the top-1 prediction
+            else:
+                top1_inliers = int(res0)       # Sometimes the matcher can't match and adds a 0.0 in the dictionary for the predictions and it caused errors
 
-            query_db_inliers, indices = torch.sort(query_db_inliers, descending=True)   # Reorder the inliers and save both the new order and the old indices reordered as well
-            
-            geo_dists = geo_dists[indices]      # Reorder the distances following this new order in decreasing number of inliers using the indices of the new order
-
-            # We take the inlier computed for the top-1 predictor, the label and the corresponding query
-            # Nothing about the predictio folder is saved as all the info needed is going to be in the txt_file_query
-            if geo_dists[0] <= threshold:      # If any of the distances is below the threshold of 25, then it is counted as a success
+            # We evaluate whether the top-1 prediction from global retrieval is within the threshold distance
+            if geo_dists[0] <= threshold:      # If the top-1 candidate distance is below the threshold of 25, then it is counted as a success
                 label = 1       # Mark the query as "easy"
-            else:     # Meaning no good prediction was made
+            else:              # Meaning top-1 was incorrect and requires re-ranking
                 label = 0       # Mark the query as "hard"
 
             log_reg_dataset.append(
-                [query_db_inliers[0].item(), label, txt_file_query]
+                [top1_inliers, label, txt_file_query]
             )
 
         # Create DataFrame
         dataframe = pd.DataFrame(
             log_reg_dataset, columns=["inliers", "label", "query_file"]
-            ) # Save this data to a file for later use
+        ) # Save this data to a file for later use
 
         # Define output path in the destination folder directory
         matcher_name = inliers_folder_name.split("_")[-1]
@@ -106,7 +100,7 @@ def main(args):
         parent_folder = Path(preds_folder).parent
         csv_path = parent_folder / f"{matcher_name}.csv"
 
-        # Save to Excel
+        # Save to CSV
         dataframe.to_csv(csv_path, index=False)
         print(f"Saved results to {csv_path}")
 
